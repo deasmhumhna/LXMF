@@ -1744,7 +1744,7 @@ class LXMRouter:
             RNS.trace_exception(e)
 
     def handle_outbound(self, lxmessage):
-        destination_hash = lxmessage.get_destination().hash
+        destination_hash = lxmessage.destination_hash
 
         if lxmessage.desired_method == LXMessage.PROPAGATED and not self.outbound_propagation_node:
             self.fail_message(lxmessage)
@@ -2696,7 +2696,7 @@ class LXMRouter:
                         self.save_available_tickets()
 
                     # Prepare link for backchannel communications
-                    delivery_destination_hash = lxmessage.get_destination().hash
+                    delivery_destination_hash = lxmessage.destination_hash
                     if lxmessage.method == LXMessage.DIRECT and delivery_destination_hash in self.direct_links:
                         direct_link = self.direct_links[delivery_destination_hash]
                         if not hasattr(direct_link, "backchannel_identified") or direct_link.backchannel_identified == False:
@@ -2727,26 +2727,26 @@ class LXMRouter:
                         lxmessage.failed_callback(lxmessage)
 
                 else:
-                    RNS.log("Outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                    RNS.log("Outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
 
                     if lxmessage.progress == None or lxmessage.progress < 0.01: lxmessage.progress = 0.01
 
                     # Outbound handling for opportunistic messages
                     if lxmessage.method == LXMessage.OPPORTUNISTIC:
                         if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
-                            if lxmessage.delivery_attempts >= LXMRouter.MAX_PATHLESS_TRIES and not RNS.Transport.has_path(lxmessage.get_destination().hash):
-                                RNS.log(f"Requesting path to {RNS.prettyhexrep(lxmessage.get_destination().hash)} after {lxmessage.delivery_attempts} pathless tries for {lxmessage}", RNS.LOG_DEBUG)
+                            if lxmessage.delivery_attempts >= LXMRouter.MAX_PATHLESS_TRIES and not RNS.Transport.has_path(lxmessage.destination_hash):
+                                RNS.log(f"Requesting path to {RNS.prettyhexrep(lxmessage.destination_hash)} after {lxmessage.delivery_attempts} pathless tries for {lxmessage}", RNS.LOG_DEBUG)
                                 lxmessage.delivery_attempts += 1
-                                RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                RNS.Transport.request_path(lxmessage.destination_hash)
                                 lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                                 lxmessage.progress = 0.01
-                            elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+1 and RNS.Transport.has_path(lxmessage.get_destination().hash):
-                                RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to rediscover path to {RNS.prettyhexrep(lxmessage.get_destination().hash)}", RNS.LOG_DEBUG)
+                            elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+1 and RNS.Transport.has_path(lxmessage.destination_hash):
+                                RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to rediscover path to {RNS.prettyhexrep(lxmessage.destination_hash)}", RNS.LOG_DEBUG)
                                 lxmessage.delivery_attempts += 1
-                                RNS.Reticulum.get_instance().drop_path(lxmessage.get_destination().hash)
+                                RNS.Reticulum.get_instance().drop_path(lxmessage.destination_hash)
                                 def rediscover_job():
                                     time.sleep(0.5)
-                                    RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                    RNS.Transport.request_path(lxmessage.destination_hash)
                                 threading.Thread(target=rediscover_job, daemon=True).start()
                                 lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                                 lxmessage.progress = 0.01
@@ -2754,17 +2754,17 @@ class LXMRouter:
                                 if not hasattr(lxmessage, "next_delivery_attempt") or time.time() > lxmessage.next_delivery_attempt:
                                     lxmessage.delivery_attempts += 1
                                     lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
-                                    RNS.log("Opportunistic delivery attempt "+str(lxmessage.delivery_attempts)+" for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                                    RNS.log("Opportunistic delivery attempt "+str(lxmessage.delivery_attempts)+" for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                                     lxmessage.send()
                         else:
-                            RNS.log("Max delivery attempts reached for oppertunistic "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                            RNS.log("Max delivery attempts reached for oppertunistic "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                             self.fail_message(lxmessage)
 
                     # Outbound handling for messages transferred
                     # over a direct link to the final recipient
                     elif lxmessage.method == LXMessage.DIRECT:
                         if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
-                            delivery_destination_hash = lxmessage.get_destination().hash
+                            delivery_destination_hash = lxmessage.destination_hash
                             direct_link = None
                             
                             if delivery_destination_hash in self.direct_links:
@@ -2786,7 +2786,7 @@ class LXMRouter:
                                     if lxmessage.progress == None or lxmessage.progress < 0.05:
                                         lxmessage.progress = 0.05
                                     if lxmessage.state != LXMessage.SENDING:
-                                        RNS.log("Starting transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" on link "+str(direct_link), RNS.LOG_DEBUG)
+                                        RNS.log("Starting transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash)+" on link "+str(direct_link), RNS.LOG_DEBUG)
                                         lxmessage.set_delivery_destination(direct_link)
                                         lxmessage.send()
                                     else:
@@ -2796,15 +2796,15 @@ class LXMRouter:
                                             RNS.log("Waiting for proof for "+str(lxmessage)+" sent as link packet", RNS.LOG_DEBUG)
                                 elif direct_link.status == RNS.Link.CLOSED:
                                     if direct_link.activated_at != None:
-                                        RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed unexpectedly, retrying path request...", RNS.LOG_DEBUG)
-                                        RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                        RNS.log("The link to "+RNS.prettyhexrep(lxmessage.destination_hash)+" was closed unexpectedly, retrying path request...", RNS.LOG_DEBUG)
+                                        RNS.Transport.request_path(lxmessage.destination_hash)
                                     else:
                                         if not hasattr(lxmessage, "path_request_retried"):
-                                            RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated, retrying path request...", RNS.LOG_DEBUG)
-                                            RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                            RNS.log("The link to "+RNS.prettyhexrep(lxmessage.destination_hash)+" was never activated, retrying path request...", RNS.LOG_DEBUG)
+                                            RNS.Transport.request_path(lxmessage.destination_hash)
                                             lxmessage.path_request_retried = True
                                         else:
-                                            RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated", RNS.LOG_DEBUG)
+                                            RNS.log("The link to "+RNS.prettyhexrep(lxmessage.destination_hash)+" was never activated", RNS.LOG_DEBUG)
 
                                         lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
 
@@ -2816,7 +2816,7 @@ class LXMRouter:
                                     lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
                                 else:
                                     # Simply wait for the link to become active or close
-                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" is pending, waiting for link to become active", RNS.LOG_DEBUG)
+                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.destination_hash)+" is pending, waiting for link to become active", RNS.LOG_DEBUG)
                             else:
                                 # No link exists, so we'll try to establish one, but
                                 # only if we've never tried before, or the retry wait
@@ -2826,28 +2826,28 @@ class LXMRouter:
                                     lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
 
                                     if lxmessage.delivery_attempts < LXMRouter.MAX_DELIVERY_ATTEMPTS:
-                                        if RNS.Transport.has_path(lxmessage.get_destination().hash):
-                                            RNS.log("Establishing link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                                        if RNS.Transport.has_path(lxmessage.destination_hash):
+                                            RNS.log("Establishing link to "+RNS.prettyhexrep(lxmessage.destination_hash)+" for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                                             delivery_link = RNS.Link(lxmessage.get_destination())
                                             delivery_link.set_link_established_callback(self.process_outbound)
                                             self.direct_links[delivery_destination_hash] = delivery_link
                                             lxmessage.progress = 0.03
                                         else:
-                                            RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
-                                            RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                            RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.destination_hash)+". Requesting path...", RNS.LOG_DEBUG)
+                                            RNS.Transport.request_path(lxmessage.destination_hash)
                                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                                             lxmessage.progress = 0.01
                         else:
-                            RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                            RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                             self.fail_message(lxmessage)
 
                     # Outbound handling for messages transported via
                     # propagation to a LXMF router network.
                     elif lxmessage.method == LXMessage.PROPAGATED:
-                        RNS.log("Attempting propagated delivery for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                        RNS.log("Attempting propagated delivery for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
 
                         if self.outbound_propagation_node == None:
-                            RNS.log("No outbound propagation node specified for propagated "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_ERROR)
+                            RNS.log("No outbound propagation node specified for propagated "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_ERROR)
                             self.fail_message(lxmessage)
                         else:
                             if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
@@ -2857,7 +2857,7 @@ class LXMRouter:
                                     # to deliver the message
                                     if self.outbound_propagation_link.status == RNS.Link.ACTIVE:
                                         if lxmessage.state != LXMessage.SENDING:
-                                            RNS.log("Starting propagation transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" via "+RNS.prettyhexrep(self.outbound_propagation_node), RNS.LOG_DEBUG)
+                                            RNS.log("Starting propagation transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash)+" via "+RNS.prettyhexrep(self.outbound_propagation_node), RNS.LOG_DEBUG)
                                             lxmessage.set_delivery_destination(self.outbound_propagation_link)
                                             lxmessage.send()
                                         else:
@@ -2883,7 +2883,7 @@ class LXMRouter:
 
                                         if lxmessage.delivery_attempts < LXMRouter.MAX_DELIVERY_ATTEMPTS:
                                             if RNS.Transport.has_path(self.outbound_propagation_node):
-                                                RNS.log("Establishing link to "+RNS.prettyhexrep(self.outbound_propagation_node)+" for propagation attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                                                RNS.log("Establishing link to "+RNS.prettyhexrep(self.outbound_propagation_node)+" for propagation attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                                                 propagation_node_identity = RNS.Identity.recall(self.outbound_propagation_node)
                                                 propagation_node_destination = RNS.Destination(propagation_node_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
                                                 self.outbound_propagation_link = RNS.Link(propagation_node_destination, established_callback=self.process_outbound)
@@ -2895,5 +2895,5 @@ class LXMRouter:
                                                 lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
 
                             else:
-                                RNS.log("Max delivery attempts reached for propagated "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                                RNS.log("Max delivery attempts reached for propagated "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.destination_hash), RNS.LOG_DEBUG)
                                 self.fail_message(lxmessage)
