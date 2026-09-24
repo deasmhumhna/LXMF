@@ -361,9 +361,12 @@ class LXMessage:
 
             self.payload = [self.timestamp, self.title, self.content, self.fields]
 
+            assert self.destination_hash 
+            assert self.source_hash
+            
             hashed_part      = b""
-            hashed_part     += self.__destination.hash
-            hashed_part     += self.__source.hash
+            hashed_part     += self.destination_hash
+            hashed_part     += self.source_hash
             hashed_part     += msgpack.packb(self.payload)
             self.hash        = RNS.Identity.full_hash(hashed_part)
             self.message_id  = self.hash
@@ -380,8 +383,8 @@ class LXMessage:
 
             packed_payload   = msgpack.packb(self.payload)
             self.packed      = b""
-            self.packed     += self.__destination.hash
-            self.packed     += self.__source.hash
+            self.packed     += self.destination_hash
+            self.packed     += self.source_hash
             self.packed     += self.signature
             self.packed     += packed_payload
             self.packed_size = len(self.packed)
